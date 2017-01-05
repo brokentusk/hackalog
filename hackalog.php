@@ -7,17 +7,17 @@
 
 <body>
 
-<?php //First off, why does this exist and why is it in PHP? It scans log files for attempts to open admin pages and returns a list of IP addresses to block. It's in PHP because I am still getting up to speed in Rust. And yes I know there are better ways to do this than I wrote. A month of logs my test site was a little over a gig. To run the entire 31 files takes about 20 seconds running on my local laptop server. 
+<?php //First off, why does this exist and why is it in PHP? It scans log files for attempts to open admin pages and returns a list of IP addresses to block. It's in PHP because I am still getting up to speed in Rust. And yes I know there are better ways to do this than what I wrote. A month of logs my test site was a little over a gig. To run the entire 31 files takes about 20 seconds running on my local laptop server. 
 foreach(glob("logs/*[!-]?[!.txt]") as $filename) {
 
 	$handle = @fopen($filename, "r"); //The log file name to look at. Yes this could be replaced by a dialog but I wanted the code to be short as possible. We set the folder to logs at the same level as hackalog. If you have a lot of logs, you will need to bump up execution time & memory or process in smaller chunks.
 	$targetfile = @fopen("logs/hackalog.txt","a"); //Write the offending lines here. We work from files for two reasons, because often this info is sent to someone else and sending these lines to the browser can cause malicious code to execute. So let's package it up. We append instead of over writing so you can run a bunch of times and still end up with one list of IPs.
 	if ($handle) {
 		while (($buffer = fgets($handle, 4096)) !== false) { //Pull the info line by line. So giant log files can be processed without blowing up the browsers.
-			if ((strpos($buffer,'admin')!==false or strpos($buffer,'base64')!==false) and strpos($buffer,'career')!=true){ // Look for admin and base64. You should be blocking base64 anyway but it doesn't hurt to look. We filter out the "career" section because if we list an administration job we want to leave those people alone.
+			if ((strpos($buffer,'admin')!==false or strpos($buffer,'base64')!==false) and strpos($buffer,'career')!=true){ // Look for admin and base64 on each log line. You should be blocking base64 anyway but it doesn't hurt to look. We filter out the "career" section because if we list an administration job we want to leave those people alone.
 				if (substr($buffer,0,3)<>"10."){ //Our admin pages are only accessible from in house. So any request from a 10.x.x.x address is ignored. Also the thing to disable if you are looking for a hack from an internal machine.
 					fwrite($targetfile, $buffer); //Slap the offending line into the file
-					$linesize=strlen($buffer); //this is to color code the sign of life tick marks to show longer ergo more complex attempts in the sign of life. DO NOT echo the buffer to the browser. Doing so can and will execute some malicious codes.
+					$linesize=strlen($buffer); //this is to color code the sign of life tick marks to show longer ergo more complex attempts in the sign of life. The ranges are set and then a switch runs through them. NEVER echo the buffer to the browser. Doing so can and will execute some malicious codes.
 					$range1to149=range(1,149);
 					$range150to249=range(150,249);
 					$range250to349=range(250,349);
@@ -50,13 +50,13 @@ foreach(glob("logs/*[!-]?[!.txt]") as $filename) {
 		}
 		fclose($targetfile);
 		if (!feof($handle)) {
-			echo "Error: File name probably not found\n";
+			echo "Error: Files not found\n";
 		}
 		fclose($handle);
 	}
 	
 }
-$data = file("logs/hackalog.txt"); //Now lets reopen the file. I did a regular open since it should be fairly small, 2,000-5,000 lines and we need it all at once to sort. Well... we don't but this is how I did it.
+$data = file("logs/hackalog.txt"); //Now lets reopen the file. I did a regular open since it should be fairly small, 2,000-5,000 lines and we need it all at once to sort quickly. 
 natsort($data); //Here we sort the contents by the IP addresses. So the hackalog.txt is by date/time and we just made a new one by IP. 
 $data=array_filter($data);
 file_put_contents("logs/hackalog2.txt", implode(PHP_EOL, $data)); //Write this one back to a file. This is where you can look at the history of individual IP's	
@@ -72,7 +72,7 @@ if ($handle) {
 	$eee=array_unique($ddd); //Now we remove any duplicates
 	}
 	foreach($eee as $writeme){
-		fwrite($targetfile, $writeme.PHP_EOL); //Here we step through the finished array and write out the lines. Because we do this every run, you can open the files at any point to see what you have. If you want to save time, you can make this output ready to cut and paste into an .htaccess file. Change $writeme."/n" to "deny From ".$writeme."/n"   Which will result in each line looking like this "deny from xxx.xxx.xxx.xxx"
+		fwrite($targetfile, $writeme.PHP_EOL); //Here we step through the finished array and write out the lines. Because we do this every run, you can open the files at any point to see what you have. If you want to save time, you can make this output ready to cut and paste into an .htaccess file. Change $writeme."/n" to "deny from ".$writeme."/n"   Which will result in each line looking like this "deny from xxx.xxx.xxx.xxx"
 	}
 	fclose($targetfile);
 	fclose($handle);	
